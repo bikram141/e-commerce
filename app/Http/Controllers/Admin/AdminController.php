@@ -8,19 +8,22 @@ use Auth;
 use Session;
 use App\Admin;
 use Hash;
+use Intervention\Image\Facades\Image;
 
 class AdminController extends Controller
 {
     public function dashboard(){
+        Session::put('page','dashboard');
         return view('admin.admin_dashboard');
     }
     public function settings(){
+        Session::put('page','settings');
         return view('admin.admin_settings');
     }
     public function login(Request $request){
         if($request->isMethod('post')){
             $data=$request->all();
-
+         
             $rules=[
                 'email' => 'required|email|max:255',
                 'password' => 'required',
@@ -75,5 +78,48 @@ class AdminController extends Controller
             }
             return redirect()->back();
         }
+    }
+    public function updateAdminDetails(Request $request){
+        Session::put('page','update-admin-details');
+      //  dd($request);
+        if($request->isMethod('post')){
+            $data=$request->all();
+            // echo "<pre>";print_r($data); die;
+            $rules=[
+                'admin_name' => 'required|regex:/^[\pL\s\-]+$/u|max:255',
+                'admin_mobile' => 'required|numeric',
+                'admin_image' => 'image'
+            ];
+            $customMessages=[
+                'admin_name.required'=>"Name is required",
+                'admin_name.alpha'=>'Valid name is required',
+                'admin_mobile.required'=>"mobile number is required",
+                'admin_mobile.numeric'=>'Valid mobile is required',
+                'admin_image.image' =>'valid image is required',
+            ];
+            $this->validate($request, $rules, $customMessages);
+           
+            //upload images
+    
+            if($request->hasFile('admin_image')){
+                $image_tmp = $request->file('admin_image');
+                if($image_temp->isValid()){
+                    $extension = $image_temp->getClientOriginalExtension();
+                    $imageName=rand(111,99999).'.'.$extension;
+                    $imagePath='images/admin_images/admin_photos/'.$imageName;
+                    Image::make($image_temp)->save($imagePath);
+                }else if(!empty($data['current_admin_image'])){
+                    $imageName=$data['current_admin_image'];
+                }else{
+                    $imageName="";
+                }
+            }
+            //update admin details
+            Admin::where('email',Auth::guard('admin')->user()->email)
+            ->update(['name'=>$data['admin_name'],'mobile'=>$data['admin_mobile'],'image'=>$imageName]);
+            Session::flash('success_message','Admin Details update successfully!');
+            return redirect()->back();
+        }
+        return view('admin.update_admin_details');
     }
 }
